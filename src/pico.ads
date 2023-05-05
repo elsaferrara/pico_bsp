@@ -7,7 +7,7 @@ with RP.Clock; use RP.Clock;
 with RP.GPIO;  use RP.GPIO;
 with RP.ADC;   use RP.ADC;
 
-package Pico is
+package Pico with SPARK_Mode is
    GP0  : aliased GPIO_Point := (Pin => 0);
    GP1  : aliased GPIO_Point := (Pin => 1);
    GP2  : aliased GPIO_Point := (Pin => 2);
