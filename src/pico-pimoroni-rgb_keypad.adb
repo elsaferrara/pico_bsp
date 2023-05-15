@@ -10,6 +10,7 @@ with HAL.I2C;  use HAL.I2C;
 with RP.I2C_Master;
 with RP.SPI;
 with RP.Device;
+with RP.GPIO;
 
 package body Pico.Pimoroni.RGB_Keypad is
 
