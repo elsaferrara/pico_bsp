@@ -23,7 +23,7 @@ project Pico_Bsp is
 
    package Compiler is
       for Default_Switches ("Ada") use Pico_Bsp_Config.Ada_Compiler_Switches &
-         ("-gnatyM120");
+         ("-gnatyM120","-gnat2022");
    end Compiler;
 
    package Binder is

@@ -1,5 +1,8 @@
 package Pico.Pimoroni.Display.Buttons
-with Elaborate_Body is
+with SPARK_Mode,
+  Elaborate_Body,
+  Abstract_State => State,
+Initializes => State is
 
    --  type Button_State is private;
 

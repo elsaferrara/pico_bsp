@@ -4,8 +4,15 @@ with RP.SPI;
 with RP.Device;
 
 with Pico.Pimoroni.Display.Buttons;
+with Integer32_Parsing;
 
-package body Pico.Pimoroni.Display with SPARK_Mode is
+package body Pico.Pimoroni.Display
+with SPARK_Mode,
+  Refined_State => (State => (Color,
+                              Pixel_Data,
+                              Cursor_X,
+                             Cursor_Y))
+is
 
    SPI : RP.SPI.SPI_Port renames RP.Device.SPI_0;
    SPI_LCD_MOSI : RP.GPIO.GPIO_Point renames Pico.GP19;
@@ -19,8 +26,8 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
    --  LED_G : RP.GPIO.GPIO_Point renames Pico.GP7;
    --  LED_B : RP.GPIO.GPIO_Point renames Pico.GP8;
 
-   Pixel_Data : SPI_Data_8b (1 .. 4 + Nbr_Of_Pixels * 2 + 4) := (others => 0);
-   Color : Bitmap_Color;
+   Pixel_Data : SPI_Data_8b (1 .. 4 + Nbr_Of_Pixels * 2 + 4) := [others => 0];
+   Color : Bitmap_Color := (0, 0, 0);
 
    subtype Cursor_Width is Natural range 0 .. Screen_Width;
    Cursor_X : Cursor_Width := 0;
@@ -49,49 +56,49 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
 
       BL_EN.Set;
 
-      Command (16#01#); -- SWRESET
+      Command (SWRESET);
 
       RP.Device.Timer.Delay_Milliseconds (150);
 
-      Command (16#35#); -- TEON
-      Command (16#3a#, (0 => 16#05#)); -- COLMOD
-      Command (16#b2#, (16#0c#, 16#0c#, 16#00#, 16#33#, 16#33#)); -- PORCTRL
-      Command (16#c0#, (0 => 16#2c#)); -- LCMCTRL
-      Command (16#c2#, (0 => 16#01#)); -- VDVVRHEN
-      Command (16#c3#, (0 => 16#12#)); -- VRHS
-      Command (16#c4#, (0 => 16#20#)); -- VDVS
-      Command (16#d0#, (16#a4#, 16#a1#)); -- PWCTRL1
-      Command (16#c6#, (0 => 16#0f#)); -- FRCTRL2
+      Command (TEON);
+      Command (COLMOD, [0 => 16#05#]);
+      Command (PORCTRL, [16#0c#, 16#0c#, 16#00#, 16#33#, 16#33#]);
+      Command (LCMCTRL, [0 => 16#2c#]);
+      Command (VDVVRHEN, [0 => 16#01#]);
+      Command (VRHS, [0 => 16#12#]);
+      Command (VDVS, [0 => 16#20#]);
+      Command (PWCTRL1, [16#a4#, 16#a1#]);
+      Command (FRCTRL2, [0 => 16#0f#]);
 
-      Command (16#c3#, (0 => 16#00#)); -- VRHS
-      Command (16#b7#, (0 => 16#75#)); -- GCTRL
-      Command (16#bb#, (0 => 16#3d#)); -- VCOMS
-      Command (16#d6#, (0 => 16#a1#)); -- ???
-      Command (16#e0#, (16#70#, 16#04#, 16#08#, 16#09#, 16#09#, 16#05#, 16#2A#,
-               16#33#, 16#41#, 16#07#, 16#13#, 16#13#, 16#29#, 16#2f#)); -- GMCTRP1
-      Command (16#e1#, (16#70#, 16#03#, 16#09#, 16#0A#, 16#09#, 16#06#, 16#2B#,
-               16#34#, 16#41#, 16#07#, 16#12#, 16#14#, 16#28#, 16#2E#)); -- GMCTRN1
+      Command (VRHS, [0 => 16#00#]);
+      Command (GCTRL, [0 => 16#75#]);
+      Command (VCOMS, [0 => 16#3d#]);
+      Command (16#d6#, [0 => 16#a1#]); -- ???
+      Command (GMCTRP1, [16#70#, 16#04#, 16#08#, 16#09#, 16#09#, 16#05#, 16#2A#,
+               16#33#, 16#41#, 16#07#, 16#13#, 16#13#, 16#29#, 16#2f#]);
+      Command (GMCTRN1, [16#70#, 16#03#, 16#09#, 16#0A#, 16#09#, 16#06#, 16#2B#,
+               16#34#, 16#41#, 16#07#, 16#12#, 16#14#, 16#28#, 16#2E#]);
 
-      Command (16#21#); -- INVON
-      Command (16#11#); -- SLPOUT
-      Command (16#29#); -- DISPON
+      Command (INVON);
+      Command (SLPOUT);
+      Command (DISPON);
 
       RP.Device.Timer.Delay_Milliseconds (100);
 
       --  TODO : add rotation
-      Command (16#2a#, (16#00#, 16#28#, 16#01#, 16#17#)); -- CASET
-      Command (16#2b#, (16#00#, 16#35#, 16#00#, 16#bb#)); -- RASET
-      Command (16#36#, (0 => 16#70#)); -- MADCTL
+      Command (CASET, [16#00#, 16#28#, 16#01#, 16#17#]);
+      Command (RASET, [16#00#, 16#35#, 16#00#, 16#bb#]);
+      Command (MADCTL, [0 => 16#70#]);
 
       Pico.Pimoroni.Display.Buttons.Initialize;
 
    end Initialize;
 
    procedure Command (Cmd : HAL.UInt8;
-                      Data : SPI_Data_8b := (1 .. 0 => 0))
+                      Data : SPI_Data_8b := [1 .. 0 => 0])
    is
       Status : SPI_Status;
-      Cmd_Arr : constant SPI_Data_8b (0 .. 0) := (0 => Cmd);
+      Cmd_Arr : constant SPI_Data_8b (0 .. 0) := [0 => Cmd];
    begin
       SPI_LCD_DC.Clear;
       SPI_LCD_CS.Clear;
@@ -188,25 +195,23 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
 
    procedure Draw_Line
      (Start, Stop : Point;
-      Thickness   : Natural := 1;
+      --  Thickness   : Natural := 1;
       Fast        : Boolean := True)
-     with SPARK_Mode => Off
+     --  with SPARK_Mode => Off
    is
-      DX     : constant Float := abs Float (Stop.X - Start.X);
-      DY     : constant Float := abs Float (Stop.Y - Start.Y);
-      Err    : Float;
-      X      : Natural := Start.X;
-      Y      : Natural := Start.Y;
-      Step_X : Integer := 1;
-      Step_Y : Integer := 1;
+      pragma Unreferenced (Fast);
+      D : Integer;
+      Xmin : constant Natural_Width := (if Start.X <= Stop.X then Start.X else Stop.X);
+      Xmax : constant Natural_Width := (if Start.X <= Stop.X then Stop.X else Start.X);
+      Ymin : constant Natural_Width := (if Start.Y <= Stop.Y then Start.Y else Stop.Y);
+      Ymax : constant Natural_Width := (if Start.Y <= Stop.Y then Stop.Y else Start.Y);
+      X : Natural_Width := Xmin;
+      Y : Natural_Height := Ymin;
+      DX : constant Natural_Width := Xmax - Xmin;
+      DY : constant Natural_Height := Ymax - Ymin;
 
-      procedure Draw_Point (P : Point) with Inline
-        --  ,
-        --  Pre => P.X <= Screen_Width - Thickness
-        --  and then P.Y <= Screen_Height - Thickness
-        --  and then P.X - (Thickness / 2) >= 0
-        --  and then P.Y - (Thickness / 2) >= 0
-      ;
+      procedure Draw_Point (P : Point) with Inline,
+      Pre => P.X <= Screen_Width - 1 and then P.Y <= Screen_Height - 1;
 
       ----------------
       -- Draw_Point --
@@ -214,60 +219,65 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
 
       procedure Draw_Point (P : Point) is
       begin
-         if Thickness /= 1 then
-            if not Fast then
-               Fill_Circle (Center => P,
-                            Radius => Thickness / 2);
-            else
-               Fill_Rect
-                 (((P.X - (Thickness / 2), P.Y - (Thickness / 2)),
-                  Thickness,
-                  Thickness));
-            end if;
-         else
+         --  if Thickness /= 1 then
+         --     if not Fast then
+         --        Fill_Circle (Center => P,
+         --                     Radius => Thickness / 2);
+         --     else
+         --        Fill_Rect
+         --          (((P.X - (Thickness / 2), P.Y - (Thickness / 2)),
+         --           Thickness,
+         --           Thickness));
+         --     end if;
+         --  else
             Set_Pixel ((P.X, P.Y));
-         end if;
+         --  end if;
       end Draw_Point;
 
+      --  X_Init : Natural := X with Ghost;
+      --  Y_Init : Natural := Y with Ghost;
+      --  If_Index : Natural := 0 with Ghost;
+      --  Index : Natural := 0 with Ghost;
+
    begin
-      if Start.X > Stop.X then
-         Step_X := -1;
-      end if;
-
-      if Start.Y > Stop.Y then
-         Step_Y := -1;
-      end if;
-
       if DX > DY then
-         Err := DX / 2.0;
-         while X /= Stop.X loop
-            pragma Loop_Invariant (if Step_X = 1 then X < Stop.X and then X >= Start.X
-                                   else X > Stop.X and then X <= Start.X);
+         D := 2 * DY - DX;
+         loop
+            pragma Loop_Invariant (D = 2 * (X - Xmin + 1) * DY - (2 * (Y - Ymin) + 1) * DX);
+            pragma Loop_Invariant (2 * (DY - DX) <= D and then D <= 2 * DY);
+            pragma Loop_Invariant (X <= Xmax);
+            pragma Loop_Invariant (Ymax - Y <= DY);
+            pragma Loop_Invariant (Y <= Ymax);
+            pragma Assert (if Y = Ymax then D = 2 * DY * (X - Xmax + 1) - DX);
             Draw_Point ((X, Y));
-            Err := Err - DY;
-            if Err < 0.0 then
-               --  pragma Assert (DY > DX);
-               Y := Y + Step_Y;
-               Err := Err + DX;
+            exit when X = Xmax;
+            if D > 0 then
+               Y := Y + 1;
+               D := D - 2 * DX;
             end if;
-            X := X + Step_X;
+            D := D + 2 * DY;
+            X := X + 1;
          end loop;
       else
-         Err := DY / 2.0;
-         while Y /= Stop.Y loop
-            pragma Loop_Invariant (if Step_Y = 1 then Y < Stop.Y and then Y >= Start.Y
-                                   else Y > Stop.Y and then Y <= Start.Y);
+         D := 2 * DX - DY;
+         loop
+            pragma Loop_Invariant (D = 2 * (Y - Ymin + 1) * DX - (2 * (X - Xmin) + 1) * DY);
+            pragma Loop_Invariant (2 * (DX - DY) <= D and then D <= 2 * DX);
+            pragma Loop_Invariant (Y <= Ymax);
+            pragma Loop_Invariant (Xmax - X <= DX);
+            pragma Loop_Invariant (X <= Xmax);
+            pragma Assert (if X = Xmax then D = 2 * DX * (Y - Ymax + 1) - DY);
             Draw_Point ((X, Y));
-            Err := Err - DX;
-            if Err < 0.0 then
-               X := X + Step_X;
-               Err := Err + DY;
+            exit when Y = Ymax;
+            if D > 0 then
+               X := X + 1;
+               D := D - 2 * DY;
             end if;
-            Y := Y + Step_Y;
+            D := D + 2 * DX;
+            Y := Y + 1;
          end loop;
       end if;
 
-      Draw_Point ((X, Y));
    end Draw_Line;
 
    ---------------
@@ -362,7 +372,6 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
    procedure Fill_Circle
      (Center : Point;
       Radius : Natural)
-     --  with SPARK_Mode => Off
    is
 
       F     : Integer := 1 - Radius;
@@ -370,11 +379,11 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
       ddF_Y : Integer := -(2 * Radius);
       X     : Integer := 0;
       Y     : Integer := Radius;
-      Index : Natural := 0;
-      Index_if : Natural := 0;
-      ddF_X_Init : Integer;
-      ddF_Y_Init : Integer;
-      F_Init : Integer;
+      Index : Natural := 0 with Ghost;
+      Index_if : Natural := 0 with Ghost;
+      ddF_X_Init : Integer with Ghost;
+      ddF_Y_Init : Integer with Ghost;
+      F_Init : Integer with Ghost;
    begin
       Draw_Vertical_Line
         (Center.X,
@@ -389,7 +398,7 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
       ddF_Y_Init := ddF_Y;
       F_Init := F;
       while X < Y loop
-         pragma Loop_Invariant (X >= 0);
+         pragma Loop_Invariant (X >= 0 and then X < Y and then Y <= Radius);
          pragma Loop_Invariant (Radius = Y - X + Index + Index_if);
          pragma Loop_Invariant (ddF_X = ddF_X_Init + 2 * Index);
          pragma Loop_Invariant (ddF_Y = ddF_Y_Init + 2 * Index_if);
@@ -418,7 +427,7 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
                         Size : Char_Size := 1)
    is
       pragma Unreferenced (Size);
-      Data_Car : Array_of_Car := (others => 0);
+      Data_Car : Array_of_Car := [others => 0];
    begin
       case C is
          when 'a' | 'A' => Data_Car := A;
@@ -485,7 +494,7 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
          return;
       end if;
 
-      if C = ASCII.LF or Cursor_X + Full_Char_Width * Text_Size > Screen_Width then
+      if C = ASCII.LF or else Cursor_X + Full_Char_Width * Text_Size > Screen_Width then
          New_Line;
       else
          Draw_Char ((Cursor_X, Cursor_Y), C, Size => Text_Size);
@@ -495,40 +504,9 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
    end Put;
 
    procedure Put (I : Interfaces.Integer_32)
-   with SPARK_Mode => Off is
-      Line_Str : String (1 .. 11) := (others => '0');
-      L : Integer_32;
-      Index : Integer := Line_Str'Last;
+     is
    begin
-
-      if I = 0 then
-         Put ("0");
-      elsif I = Integer_32'First then
-         Put ("-2147483648");
-         return;
-      end if;
-
-      L := abs I;
-      while L /= 0 loop
-         pragma Loop_Invariant (2147483647 / 10 ** 10 = 0);
-         pragma Loop_Invariant (L <= 2147483647);
-         --  pragma Loop_Invariant (L = abs I / 10 ** (Line_Str'Last - Index));
-         --  pragma Loop_Invariant (Index >= Line_Str'Last - 10);
-         pragma Loop_Invariant (Index <= Line_Str'Last);
-         pragma Loop_Invariant (Index >= Line_Str'First + 2);
-         Line_Str (Index) :=
-           Character'Enum_Val (Character'Enum_Rep ('0') + L mod 10);
-         L := L / 10;
-         Index := Index - 1;
-      end loop;
-
-      if I < 0 then
-         pragma Assert (Index >= Line_Str'First + 1);
-         Line_Str (Index) := '-';
-         Index := Index - 1;
-      end if;
-
-      Put (Line_Str (Index + 1 .. Line_Str'Last));
+      Put (Integer32_Parsing.Print_Int_32 (I));
    end Put;
 
    procedure New_Line is
@@ -557,42 +535,9 @@ package body Pico.Pimoroni.Display with SPARK_Mode is
 
       Command (16#2c#, Pixel_Data);
       if Clear then
-         Pixel_Data := (others => 0);
+         Pixel_Data := [others => 0];
       end if;
 
    end Update;
-
-   function Check_Thickness
-     (Start, Stop : Point;
-      Thickness   : Natural)
-      return Boolean
-   is
-      begin
-      if Start.X < Stop.X then
-         if Start.Y < Stop.Y then
-                    return (Stop.X <= Screen_Width - Thickness
-                  and Stop.Y <= Screen_Height - Thickness
-                  and Start.X - (Thickness / 2) >= 0
-              and Start.Y - (Thickness / 2) >= 0);
-         else
-            return (Stop.X <= Screen_Width - Thickness
-                  and Start.Y <= Screen_Height - Thickness
-                  and Start.X - (Thickness / 2) >= 0
-              and Stop.Y - (Thickness / 2) >= 0);
-            end if;
-      else
-         if Start.Y < Stop.Y then
-            return (Stop.X <= Screen_Width - Thickness
-                  and Start.Y <= Screen_Height - Thickness
-                  and Start.X - (Thickness / 2) >= 0
-              and Stop.Y - (Thickness / 2) >= 0);
-                    else
-                      return (Start.X <= Screen_Width - Thickness
-                  and Start.Y <= Screen_Height - Thickness
-                  and Stop.X - (Thickness / 2) >= 0
-              and Stop.Y - (Thickness / 2) >= 0);
-         end if;
-      end if;
-   end Check_Thickness;
 
 end Pico.Pimoroni.Display;

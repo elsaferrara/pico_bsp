@@ -30,7 +30,7 @@ package body Pico.Pimoroni.RGB_Keypad is
    Nbr_Of_LEDs : constant := 16;
 
    LED_Data : SPI_Data_8b (1 .. 4 + Nbr_Of_LEDs * 4 + 4) :=
-     (0, 0, 0, 0,
+     [0, 0, 0, 0,
       2#111_00000#, 0, 0, 0,
       2#111_00000#, 0, 0, 0,
       2#111_00000#, 0, 0, 0,
@@ -48,7 +48,7 @@ package body Pico.Pimoroni.RGB_Keypad is
       2#111_00000#, 0, 0, 0,
       2#111_00000#, 0, 0, 0,
       0, 0, 0, 0
-     );
+     ];
 
    ----------------
    -- Initialize --
@@ -166,7 +166,7 @@ package body Pico.Pimoroni.RGB_Keypad is
 
       declare
          Status : I2C_Status;
-         Data : I2C_Data (1 .. 2) := (others => 255);
+         Data : I2C_Data (1 .. 2) := [others => 255];
       begin
 
          --  HAL.I2C expects 8-bit address (with R/W bit as 0)

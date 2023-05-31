@@ -1,5 +1,8 @@
 
-package body Pico.Pimoroni.Display.Buttons is
+package body Pico.Pimoroni.Display.Buttons
+with SPARK_Mode,
+  Refined_State => (State => (Current_Buttons_State, Previous_Buttons_State))
+is
 
    Current_Buttons_State : Unsigned_4 := 0;
    Previous_Buttons_State : Unsigned_4 := 0;

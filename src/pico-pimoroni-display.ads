@@ -2,7 +2,10 @@ with HAL;
 with HAL.SPI; use HAL.SPI;
 with Interfaces; use Interfaces;
 
-package Pico.Pimoroni.Display with SPARK_Mode is
+package Pico.Pimoroni.Display with SPARK_Mode,
+  Abstract_State => State,
+  Initializes => State
+is
 
    type Bitmap_Color is record
       Red   : HAL.UInt8;
@@ -39,7 +42,7 @@ package Pico.Pimoroni.Display with SPARK_Mode is
    procedure Initialize;
 
       procedure Command (Cmd : HAL.UInt8;
-                         Data : SPI_Data_8b := (1 .. 0 => 0));
+                         Data : SPI_Data_8b := [1 .. 0 => 0]);
 
    procedure Set_Pixel (Pt : Point; On : Boolean := True)
      with Pre => Pt.X <= Screen_Width - 1 and then Pt.Y <= Screen_Height - 1
@@ -57,9 +60,10 @@ package Pico.Pimoroni.Display with SPARK_Mode is
 
    procedure Draw_Line
      (Start, Stop : Point;
-      Thickness   : Natural := 1;
+      --  Thickness   : Natural := 1;
       Fast        : Boolean := True)
-     with Pre => Check_Thickness(Start, Stop, Thickness);
+     with Pre => Start.X <= Screen_Width - 1 and then Start.Y <= Screen_Height - 1
+   and then Stop.X <= Screen_Width - 1 and then Stop.Y <= Screen_Height - 1;
 
    procedure Draw_Horizontal_Line (X, Y : Integer; Width : Natural)
     with Pre => Width <= Screen_Width;
@@ -96,12 +100,6 @@ package Pico.Pimoroni.Display with SPARK_Mode is
      with Pre => X <= Screen_Width
      and then Y <= Screen_Height;
 
-      function Check_Thickness
-     (Start, Stop : Point;
-      Thickness   : Natural)
-      return Boolean
-     with Ghost;
-
    Brown               : constant Bitmap_Color := (165, 042, 042);
    Red                 : constant Bitmap_Color := (255, 000, 000);
    Orange              : constant Bitmap_Color := (255, 165, 000);
@@ -125,332 +123,353 @@ package Pico.Pimoroni.Display with SPARK_Mode is
    Line_Spacing     : constant := 0;
    Full_Char_Width  : constant := Char_Width + Char_Spacing;
    Full_Char_Height : constant := Char_Height + Line_Spacing;
-   private
+private
 
-
+   SWRESET : constant := 16#01#;
+   TEON : constant := 16#35#;
+   COLMOD : constant := 16#3a#;
+   PORCTRL : constant := 16#b2#;
+   LCMCTRL : constant := 16#c0#;
+   VDVVRHEN : constant := 16#c2#;
+   VRHS : constant := 16#c3#;
+   VDVS : constant := 16#c4#;
+   PWCTRL1 : constant := 16#d0#;
+   FRCTRL2 : constant := 16#c6#;
+   GCTRL : constant := 16#b7#;
+   VCOMS : constant := 16#bb#;
+   GMCTRP1 : constant := 16#e0#;
+   GMCTRN1 : constant := 16#e1#;
+   INVON : constant := 16#21#;
+   SLPOUT : constant := 16#11#;
+   DISPON : constant := 16#29#;
+   CASET : constant := 16#2a#;
+   RASET : constant := 16#2b#;
+   MADCTL : constant := 16#36#;
 
    type Array_of_Car is array (Natural range 0 .. Char_Width * Char_Height - 1) of Natural;
 
-   A : constant Array_of_Car := (0, 1, 1, 1, 0,
+   A : constant Array_of_Car := [0, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 1, 1, 1, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   B : constant Array_of_Car := (1, 1, 1, 1, 0,
+   B : constant Array_of_Car := [1, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 1, 1, 1, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   CC : constant Array_of_Car := (0, 1, 1, 1, 0,
+   CC : constant Array_of_Car := [0, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 1,
                                  0, 1, 1, 1, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   D : constant Array_of_Car := (1, 1, 1, 1, 0,
+   D : constant Array_of_Car := [1, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 1, 1, 1, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   E : constant Array_of_Car := (1, 1, 1, 1, 1,
+   E : constant Array_of_Car := [1, 1, 1, 1, 1,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 1, 1, 1, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 1, 1, 1, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   F : constant Array_of_Car := (1, 1, 1, 1, 1,
+   F : constant Array_of_Car := [1, 1, 1, 1, 1,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 1, 1, 1, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   G : constant Array_of_Car := (0, 1, 1, 1, 0,
+   G : constant Array_of_Car := [0, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 1, 1,
                                  1, 0, 0, 0, 1,
                                  0, 1, 1, 1, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   H : constant Array_of_Car := (1, 0, 0, 0, 1,
+   H : constant Array_of_Car := [1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 1, 1, 1, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   I : constant Array_of_Car := (0, 1, 1, 1, 0,
+   I : constant Array_of_Car := [0, 1, 1, 1, 0,
                                  0, 0, 1, 0, 0,
                                  0, 0, 1, 0, 0,
                                  0, 0, 1, 0, 0,
                                  0, 0, 1, 0, 0,
                                  0, 0, 1, 0, 0,
                                  0, 1, 1, 1, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   J : constant Array_of_Car := (0, 0, 1, 1, 1,
+   J : constant Array_of_Car := [0, 0, 1, 1, 1,
                                  0, 0, 0, 1, 0,
                                  0, 0, 0, 1, 0,
                                  0, 0, 0, 1, 0,
                                  0, 0, 0, 1, 0,
                                  1, 0, 0, 1, 0,
                                  0, 1, 1, 0, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   K : constant Array_of_Car := (1, 0, 0, 0, 1,
+   K : constant Array_of_Car := [1, 0, 0, 0, 1,
                                  1, 0, 0, 1, 0,
                                  1, 0, 1, 0, 0,
                                  1, 1, 0, 0, 0,
                                  1, 0, 1, 0, 0,
                                  1, 0, 0, 1, 0,
                                  1, 0, 0, 0, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   L : constant Array_of_Car := (1, 0, 0, 0, 0,
+   L : constant Array_of_Car := [1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 1, 1, 1, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   M : constant Array_of_Car := (1, 0, 0, 0, 1,
+   M : constant Array_of_Car := [1, 0, 0, 0, 1,
                                  1, 1, 0, 1, 1,
                                  1, 0, 1, 0, 1,
                                  1, 0, 1, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   N : constant Array_of_Car := (1, 0, 0, 0, 1,
+   N : constant Array_of_Car := [1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 1, 0, 0, 1,
                                  1, 0, 1, 0, 1,
                                  1, 0, 0, 1, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   O : constant Array_of_Car := (0, 1, 1, 1, 0,
+   O : constant Array_of_Car := [0, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  0, 1, 1, 1, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   P : constant Array_of_Car := (1, 1, 1, 1, 0,
+   P : constant Array_of_Car := [1, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 1, 1, 1, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   Q : constant Array_of_Car := (0, 1, 1, 1, 0,
+   Q : constant Array_of_Car := [0, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 1, 0, 1,
                                  1, 0, 0, 1, 0,
                                  0, 1, 1, 0, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   R : constant Array_of_Car := (1, 1, 1, 1, 0,
+   R : constant Array_of_Car := [1, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 1, 1, 1, 0,
                                  1, 0, 1, 0, 0,
                                  1, 0, 0, 1, 0,
                                  1, 0, 0, 0, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   S : constant Array_of_Car := (0, 1, 1, 1, 1,
+   S : constant Array_of_Car := [0, 1, 1, 1, 1,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  0, 1, 1, 1, 0,
                                  0, 0, 0, 0, 1,
                                  0, 0, 0, 0, 1,
                                  1, 1, 1, 1, 0,
-                                 0, 0, 0, 0, 0);
-   T : constant Array_of_Car := (1, 1, 1, 1, 1,
-                                 0, 0, 1, 0, 0,
-                                 0, 0, 1, 0, 0,
-                                 0, 0, 1, 0, 0,
-                                 0, 0, 1, 0, 0,
-                                 0, 0, 1, 0, 0,
-                                 0, 0, 1, 0, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   U : constant Array_of_Car := (1, 0, 0, 0, 1,
+   T : constant Array_of_Car := [1, 1, 1, 1, 1,
+                                 0, 0, 1, 0, 0,
+                                 0, 0, 1, 0, 0,
+                                 0, 0, 1, 0, 0,
+                                 0, 0, 1, 0, 0,
+                                 0, 0, 1, 0, 0,
+                                 0, 0, 1, 0, 0,
+                                 0, 0, 0, 0, 0];
+
+   U : constant Array_of_Car := [1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  0, 1, 1, 1, 0,
-                                 0, 0, 0, 0, 0);
-   V : constant Array_of_Car := (1, 0, 0, 0, 1,
+                                 0, 0, 0, 0, 0];
+
+   V : constant Array_of_Car := [1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  0, 1, 0, 1, 0,
                                  0, 1, 0, 1, 0,
                                  0, 0, 1, 0, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   W : constant Array_of_Car := (1, 0, 0, 0, 1,
+   W : constant Array_of_Car := [1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  1, 0, 1, 0, 1,
                                  1, 0, 1, 0, 1,
                                  1, 0, 1, 0, 1,
                                  0, 1, 0, 1, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   X : constant Array_of_Car := (1, 0, 0, 0, 1,
+   X : constant Array_of_Car := [1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  0, 1, 0, 1, 0,
                                  0, 0, 1, 0, 0,
                                  0, 1, 0, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   Y : constant Array_of_Car := (1, 0, 0, 0, 1,
+   Y : constant Array_of_Car := [1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 1,
                                  0, 1, 0, 1, 0,
                                  0, 0, 1, 0, 0,
                                  0, 0, 1, 0, 0,
                                  0, 0, 1, 0, 0,
                                  0, 0, 1, 0, 0,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   Z : constant Array_of_Car := (1, 1, 1, 1, 1,
+   Z : constant Array_of_Car := [1, 1, 1, 1, 1,
                                  0, 0, 0, 0, 1,
                                  0, 0, 0, 1, 0,
                                  0, 0, 1, 0, 0,
                                  0, 1, 0, 0, 0,
                                  1, 0, 0, 0, 0,
                                  1, 1, 1, 1, 1,
-                                 0, 0, 0, 0, 0);
+                                 0, 0, 0, 0, 0];
 
-   N0 : constant Array_of_Car := (0, 1, 1, 1, 0,
+   N0 : constant Array_of_Car := [0, 1, 1, 1, 0,
                                   1, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   0, 1, 1, 1, 0,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
-   N1 : constant Array_of_Car := (0, 0, 1, 0, 0,
+   N1 : constant Array_of_Car := [0, 0, 1, 0, 0,
                                   1, 1, 1, 0, 0,
                                   0, 0, 1, 0, 0,
                                   0, 0, 1, 0, 0,
                                   0, 0, 1, 0, 0,
                                   0, 0, 1, 0, 0,
                                   1, 1, 1, 1, 1,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
-   N2 : constant Array_of_Car := (0, 1, 1, 1, 0,
+   N2 : constant Array_of_Car := [0, 1, 1, 1, 0,
                                   1, 0, 0, 0, 1,
                                   0, 0, 0, 1, 0,
                                   0, 0, 1, 0, 0,
                                   0, 1, 0, 0, 0,
                                   1, 0, 0, 0, 0,
                                   1, 1, 1, 1, 1,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
-   N3 : constant Array_of_Car := (0, 1, 1, 1, 0,
+   N3 : constant Array_of_Car := [0, 1, 1, 1, 0,
                                   1, 0, 0, 0, 1,
                                   0, 0, 0, 0, 1,
                                   0, 0, 1, 1, 0,
                                   0, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   0, 1, 1, 1, 0,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
-   N4 : constant Array_of_Car := (1, 0, 0, 0, 0,
+   N4 : constant Array_of_Car := [1, 0, 0, 0, 0,
                                   1, 0, 0, 0, 0,
                                   1, 0, 0, 0, 0,
                                   1, 0, 1, 0, 0,
                                   1, 1, 1, 1, 1,
                                   0, 0, 1, 0, 0,
                                   0, 0, 1, 0, 0,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
-   N5 : constant Array_of_Car := (1, 1, 1, 1, 1,
+   N5 : constant Array_of_Car := [1, 1, 1, 1, 1,
                                   1, 0, 0, 0, 0,
                                   1, 0, 0, 0, 0,
                                   1, 1, 1, 1, 0,
                                   0, 0, 0, 0, 1,
                                   0, 0, 0, 0, 1,
                                   1, 1, 1, 1, 0,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
-   N6 : constant Array_of_Car := (0, 1, 1, 1, 0,
+   N6 : constant Array_of_Car := [0, 1, 1, 1, 0,
                                   1, 0, 0, 0, 1,
                                   1, 0, 0, 0, 0,
                                   1, 1, 1, 1, 0,
                                   1, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   0, 1, 1, 1, 0,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
-   N7 : constant Array_of_Car := (1, 1, 1, 1, 1,
+   N7 : constant Array_of_Car := [1, 1, 1, 1, 1,
                                   0, 0, 0, 0, 1,
                                   0, 0, 0, 1, 0,
                                   0, 0, 1, 0, 0,
                                   0, 0, 1, 0, 0,
                                   0, 0, 1, 0, 0,
                                   0, 0, 1, 0, 0,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
-   N8 : constant Array_of_Car := (0, 1, 1, 1, 0,
+   N8 : constant Array_of_Car := [0, 1, 1, 1, 0,
                                   1, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   0, 1, 1, 1, 0,
                                   1, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   0, 1, 1, 1, 0,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
-   N9 : constant Array_of_Car := (0, 1, 1, 1, 0,
+   N9 : constant Array_of_Car := [0, 1, 1, 1, 0,
                                   1, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   0, 1, 1, 1, 1,
                                   0, 0, 0, 0, 1,
                                   1, 0, 0, 0, 1,
                                   0, 1, 1, 1, 0,
-                                  0, 0, 0, 0, 0);
+                                  0, 0, 0, 0, 0];
 
 end Pico.Pimoroni.Display;
