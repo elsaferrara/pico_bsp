@@ -11,7 +11,7 @@ with SPARK_Mode,
   Refined_State => (State => (Color,
                               Pixel_Data,
                               Cursor_X,
-                             Cursor_Y))
+                              Cursor_Y))
 is
 
    SPI : RP.SPI.SPI_Port renames RP.Device.SPI_0;
@@ -22,9 +22,9 @@ is
 
    BL_EN : RP.GPIO.GPIO_Point renames Pico.GP20;
 
-   --  LED_R : RP.GPIO.GPIO_Point renames Pico.GP6;
-   --  LED_G : RP.GPIO.GPIO_Point renames Pico.GP7;
-   --  LED_B : RP.GPIO.GPIO_Point renames Pico.GP8;
+   LED_R : RP.GPIO.GPIO_Point renames Pico.GP6;
+   LED_G : RP.GPIO.GPIO_Point renames Pico.GP7;
+   LED_B : RP.GPIO.GPIO_Point renames Pico.GP8;
 
    Pixel_Data : SPI_Data_8b (1 .. 4 + Nbr_Of_Pixels * 2 + 4) := [others => 0];
    Color : Bitmap_Color := (0, 0, 0);
@@ -42,11 +42,10 @@ is
    procedure Initialize is
 
    begin
-      SPI.Configure
-
-        ((Role => RP.SPI.Master,
-          Baud => 20_000_000,
-          others => <>));
+      RP.SPI.Configure  (SPI, (
+                  Role => RP.SPI.Master,
+                  Baud => 20_000_000,
+                  others => <>));
 
       SPI_LCD_CLK.Configure (Output, Floating, RP.GPIO.SPI);
       SPI_LCD_MOSI.Configure (Output, Floating, RP.GPIO.SPI);
@@ -85,7 +84,6 @@ is
 
       RP.Device.Timer.Delay_Milliseconds (100);
 
-      --  TODO : add rotation
       Command (CASET, [16#00#, 16#28#, 16#01#, 16#17#]);
       Command (RASET, [16#00#, 16#35#, 16#00#, 16#bb#]);
       Command (MADCTL, [0 => 16#70#]);
@@ -103,7 +101,7 @@ is
       SPI_LCD_DC.Clear;
       SPI_LCD_CS.Clear;
 
-      SPI.Transmit (Cmd_Arr, Status);
+      RP.SPI.Transmit (SPI, Cmd_Arr, Status);
 
       if Status /= Ok then
          return;
@@ -111,7 +109,7 @@ is
 
       if Data'Length /= 0 then
          SPI_LCD_DC.Set;
-         SPI.Transmit (Data, Status);
+         RP.SPI.Transmit (SPI, Data, Status);
          if Status /= Ok then
             return;
          end if;
@@ -134,11 +132,6 @@ is
       Data_hi : HAL.UInt8;
       Data_lo : HAL.UInt8;
    begin
-      --  if Pt.X < 0 or else Pt.X > Screen_Width - 1
-      --    or else Pt.Y < 0 or else Pt.Y > Screen_Height - 1
-      --  then
-      --     return;
-      --  end if;
 
       Index := Pixel_Data'First + 4 + (Pt.X + Pt.Y * Screen_Width) * 2;
 
@@ -170,23 +163,6 @@ is
                 Blue => B);
    end Set_Color;
 
-   ---------
-   -- Get --
-
-   --  TODO : Get Color and Get Pxl
-   ---------
-
-   --  procedure Get (Pxl          :     Pixel;
-   --                 R, G, B    : out HAL.UInt8)
-   --  is
-   --     Index : constant Natural := Pixel_Data'First + 4 + Natural (Pxl) * 3;
-   --  begin
-   --
-   --     B := Pixel_Data (Index);
-   --     G := Pixel_Data (Index + 1);
-   --     R := Pixel_Data (Index + 2);
-   --  end Get;
-
    function To_RGB565 (R, G, B    : HAL.UInt8)
                        return HAL.UInt16
    is (Shift_Left ((HAL.UInt16 (R) and 2#11111000#), 8) or
@@ -194,12 +170,8 @@ is
          Shift_Right ((HAL.UInt16 (B) and 2#11111000#), 3));
 
    procedure Draw_Line
-     (Start, Stop : Point;
-      --  Thickness   : Natural := 1;
-      Fast        : Boolean := True)
-     --  with SPARK_Mode => Off
+     (Start, Stop : Point)
    is
-      pragma Unreferenced (Fast);
       D : Integer;
       Xmin : constant Natural_Width := (if Start.X <= Stop.X then Start.X else Stop.X);
       Xmax : constant Natural_Width := (if Start.X <= Stop.X then Stop.X else Start.X);
@@ -219,25 +191,8 @@ is
 
       procedure Draw_Point (P : Point) is
       begin
-         --  if Thickness /= 1 then
-         --     if not Fast then
-         --        Fill_Circle (Center => P,
-         --                     Radius => Thickness / 2);
-         --     else
-         --        Fill_Rect
-         --          (((P.X - (Thickness / 2), P.Y - (Thickness / 2)),
-         --           Thickness,
-         --           Thickness));
-         --     end if;
-         --  else
             Set_Pixel ((P.X, P.Y));
-         --  end if;
       end Draw_Point;
-
-      --  X_Init : Natural := X with Ghost;
-      --  Y_Init : Natural := Y with Ghost;
-      --  If_Index : Natural := 0 with Ghost;
-      --  Index : Natural := 0 with Ghost;
 
    begin
       if DX > DY then
@@ -422,17 +377,17 @@ is
    end Fill_Circle;
 
    procedure Draw_Char (Pt   : Point;
-                        C    : Character;
+                        Char    : Character;
                         On   : Boolean := True;
                         Size : Char_Size := 1)
    is
       pragma Unreferenced (Size);
       Data_Car : Array_of_Car := [others => 0];
    begin
-      case C is
+      case Char is
          when 'a' | 'A' => Data_Car := A;
          when 'b' | 'B' => Data_Car := B;
-         when 'c' | 'C' => Data_Car := CC;
+         when 'c' | 'C' => Data_Car := C;
          when 'd' | 'D' => Data_Car := D;
          when 'e' | 'E' => Data_Car := E;
          when 'f' | 'F' => Data_Car := F;

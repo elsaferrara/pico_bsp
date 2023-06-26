@@ -20,7 +20,9 @@ is
       SW_Y.Configure (Input, Pull_Up);
    end Initialize;
 
-   function Buttons_State return Unsigned_4 is
+   procedure Buttons_State
+     (State : out Unsigned_4)
+   is
       Buttons : Unsigned_4 := 2#0000#;
       Result : Boolean;
    begin
@@ -45,25 +47,29 @@ is
          Buttons := Buttons or Y'Enum_Rep;
       end if;
 
-      return Buttons;
+      State := Buttons;
    end Buttons_State;
 
    -------------
    -- Pressed --
    -------------
 
-   function Pressed (Button : Button_Kind) return Boolean is
+   procedure Pressed (Button : Button_Kind;
+                        Result : out Boolean) is
    begin
-      return Pressed (Button'Enum_Rep);
+      Pressed (Button'Enum_Rep, Result);
    end Pressed;
 
    -------------
    -- Pressed --
    -------------
 
-   function Pressed (Button_Mask : Unsigned_4) return Boolean is
+   procedure Pressed (Button_Mask : Unsigned_4;
+                        Result : out Boolean) is
+      State : Unsigned_4;
    begin
-      return (Buttons_State and Button_Mask) = Button_Mask;
+      Buttons_State (State);
+      Result := (State and Button_Mask) = Button_Mask;
    end Pressed;
 
    ------------------
@@ -71,9 +77,12 @@ is
    ------------------
 
    procedure Poll_Buttons is
+   State : Unsigned_4;
    begin
+
       Previous_Buttons_State := Current_Buttons_State;
-      Current_Buttons_State := Buttons_State;
+      Buttons_State (State);
+      Current_Buttons_State := State;
    end Poll_Buttons;
 
    ------------------

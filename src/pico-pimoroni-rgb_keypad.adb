@@ -56,8 +56,8 @@ package body Pico.Pimoroni.RGB_Keypad is
 
    procedure Initialize is
    begin
-      SPI.Configure
-         ((Role => RP.SPI.Master,
+      RP.SPI.Configure
+         (SPI, (Role => RP.SPI.Master,
            Baud => 20_000_000,
            others => <>));
 
@@ -161,7 +161,7 @@ package body Pico.Pimoroni.RGB_Keypad is
       Status : SPI_Status;
    begin
       SPI_CS.Clear;
-      SPI.Transmit (LED_Data, Status);
+      RP.SPI.Transmit (SPI, LED_Data, Status);
       SPI_CS.Set;
 
       declare
