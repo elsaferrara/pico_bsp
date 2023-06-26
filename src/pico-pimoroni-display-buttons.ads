@@ -13,9 +13,11 @@ Initializes => State is
 
    procedure Initialize;
 
-   function Pressed (Button : Button_Kind) return Boolean;
+   procedure Pressed (Button : Button_Kind;
+                        Result : out Boolean);
 
-   function Pressed (Button_Mask : Unsigned_4) return Boolean;
+   procedure Pressed (Button_Mask : Unsigned_4;
+                        Result : out Boolean);
 
    procedure Poll_Buttons;
 
