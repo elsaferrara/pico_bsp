@@ -1,6 +1,13 @@
 with HAL;
 with HAL.SPI; use HAL.SPI;
 with Interfaces; use Interfaces;
+with RP.Device;
+
+with RP2040_SVD.XOSC;
+with RP2040_SVD.ROSC;
+with RP2040_SVD.SPI;
+with RP2040_SVD.CLOCKS;
+with RP.GPIO;
 
 package Pico.Pimoroni.Display with SPARK_Mode,
   Abstract_State => State,
@@ -59,9 +66,7 @@ is
    procedure Update (Clear : Boolean := False);
 
    procedure Draw_Line
-     (Start, Stop : Point;
-      --  Thickness   : Natural := 1;
-      Fast        : Boolean := True)
+     (Start, Stop : Point)
      with Pre => Start.X <= Screen_Width - 1 and then Start.Y <= Screen_Height - 1
    and then Stop.X <= Screen_Width - 1 and then Stop.Y <= Screen_Height - 1;
 
@@ -85,7 +90,7 @@ is
 
    subtype Char_Size is Natural range 1 .. 16;
       procedure Draw_Char (Pt   : Point;
-                        C    : Character;
+                        Char    : Character;
                         On   : Boolean := True;
                            Size : Char_Size := 1)
      with Pre => Pt.X + Char_Width >= 0
@@ -166,7 +171,7 @@ private
                                  1, 1, 1, 1, 0,
                                  0, 0, 0, 0, 0];
 
-   CC : constant Array_of_Car := [0, 1, 1, 1, 0,
+   C : constant Array_of_Car := [0, 1, 1, 1, 0,
                                  1, 0, 0, 0, 1,
                                  1, 0, 0, 0, 0,
                                  1, 0, 0, 0, 0,

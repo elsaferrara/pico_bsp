@@ -13,5 +13,8 @@ website = "https://pico-doc.synack.me/"
 hal = "~0.3"
 rp2040_hal = "^2.0"
 
+[[pins]]
+rp2040_hal = {path="../rp2040_hal"}
+
 [configuration.values]
 rp2040_hal.Flash_Chip = "w25qxx"
