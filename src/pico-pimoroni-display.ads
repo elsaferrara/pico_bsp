@@ -3,12 +3,6 @@ with HAL.SPI; use HAL.SPI;
 with Interfaces; use Interfaces;
 with RP.Device;
 
-with RP2040_SVD.XOSC;
-with RP2040_SVD.ROSC;
-with RP2040_SVD.SPI;
-with RP2040_SVD.CLOCKS;
-with RP.GPIO;
-
 package Pico.Pimoroni.Display with SPARK_Mode,
   Abstract_State => State,
   Initializes => State
@@ -46,7 +40,9 @@ is
      with Dynamic_Predicate => Position.X <= Screen_Width - Width
    and then Position.Y <= Screen_Height - Height;
 
-   procedure Initialize;
+   procedure Initialize
+     --  with Global => (Output => RP.Device.SPI_0)
+   ;
 
       procedure Command (Cmd : HAL.UInt8;
                          Data : SPI_Data_8b := [1 .. 0 => 0]);
